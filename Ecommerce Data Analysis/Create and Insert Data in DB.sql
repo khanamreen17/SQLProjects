@@ -14,7 +14,7 @@ GO
 --Create Products table and insert records from CSV file
 CREATE TABLE products (
 	product_id 	VARCHAR(150) PRIMARY KEY,
-	product_category TEXT,
+	product_category VARCHAR(100),
 	product_name_length integer,
 	product_description_length integer,
 	product_photos_qty integer,
@@ -39,8 +39,8 @@ CREATE TABLE customers (
 customer_id VARCHAR(150) NOT NULL,
 customer_unique_id VARCHAR(150) NOT NULL,
 customer_zip_code_prefix INTEGER,
-customer_city TEXT,
-customer_state TEXT,
+customer_city VARCHAR(100),
+customer_state VARCHAR(100),
 CONSTRAINT CUSTOMER PRIMARY KEY (customer_id,customer_unique_id)
 )
 ;
@@ -101,8 +101,8 @@ CREATE TABLE orders (
 
 order_id VARCHAR(150) NOT NULL,
 customer_id VARCHAR(150) NOT NULL,
-order_status TEXT,
-order_purchase_timestamp TIMESTAMP,
+order_status VARCHAR(100),
+order_purchase_timestamp DATETIME,
 order_approved_at DATETIME,
 order_delivered_carrier_date DATETIME,
 order_delivered_customer_date DATETIME,
