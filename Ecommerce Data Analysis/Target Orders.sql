@@ -1,132 +1,132 @@
-set statistics io,time on
+SET STATISTICS IO,TIME ON
 
---Create Indexes
-CREATE NONCLUSTERED INDEX IDX_Orders ON orders(customer_id) INCLUDE (order_purchase_timestamp,order_delivered_carrier_date) ;
-CREATE INDEX idx_customers_id ON customers(customer_id);
-CREATE INDEX idx_orders_id ON orders(order_id);
-CREATE INDEX idx_customers_orders ON customers(customer_zip_code_prefix) INCLUDE (customer_city);
-CREATE INDEX idx_orders_customer_id ON orders(customer_id);
-CREATE INDEX idx_order_items_order_id ON order_items(order_id);
-CREATE INDEX idx_order_items_product_id ON order_items(product_id);
-CREATE INDEX idx_products_product_id ON products(product_id);
-CREATE INDEX idx_payments_order_id ON payments(order_id);
-CREATE INDEX idx_order_items_grouping ON order_items (order_id, product_id, price);
+--CREATE INDEXES
+CREATE NONCLUSTERED INDEX IDX_ORDERS ON ORDERS(CUSTOMER_ID) INCLUDE (ORDER_PURCHASE_TIMESTAMP,ORDER_DELIVERED_CARRIER_DATE) ;
+CREATE INDEX IDX_CUSTOMERS_ID ON CUSTOMERS(CUSTOMER_ID);
+CREATE INDEX IDX_ORDERS_ID ON ORDERS(ORDER_ID);
+CREATE INDEX IDX_CUSTOMERS_ORDERS ON CUSTOMERS(CUSTOMER_ZIP_CODE_PREFIX) INCLUDE (CUSTOMER_CITY);
+CREATE INDEX IDX_ORDERS_CUSTOMER_ID ON ORDERS(CUSTOMER_ID);
+CREATE INDEX IDX_ORDER_ITEMS_ORDER_ID ON ORDER_ITEMS(ORDER_ID);
+CREATE INDEX IDX_ORDER_ITEMS_PRODUCT_ID ON ORDER_ITEMS(PRODUCT_ID);
+CREATE INDEX IDX_PRODUCTS_PRODUCT_ID ON PRODUCTS(PRODUCT_ID);
+CREATE INDEX IDX_PAYMENTS_ORDER_ID ON PAYMENTS(ORDER_ID);
+CREATE INDEX IDX_ORDER_ITEMS_GROUPING ON ORDER_ITEMS (ORDER_ID, PRODUCT_ID, PRICE);
 
---Preaggregate data
-DROP TABLE IF EXISTS staged_payments;
-CREATE TABLE staged_payments (
-    order_id VARCHAR(150),
-    payment_type VARCHAR(150),
-	payment_value FLOAT,
-    max_payment_sequential INT
+--PREAGGREGATE DATA
+DROP TABLE IF EXISTS STAGED_PAYMENTS;
+CREATE TABLE STAGED_PAYMENTS (
+    ORDER_ID VARCHAR(150),
+    PAYMENT_TYPE VARCHAR(150),
+	PAYMENT_VALUE FLOAT,
+    MAX_PAYMENT_SEQUENTIAL INT
 );
 
--- Ensure the table is empty before insertion
-TRUNCATE TABLE staged_payments;
-INSERT INTO staged_payments
+-- ENSURE THE TABLE IS EMPTY BEFORE INSERTION
+TRUNCATE TABLE STAGED_PAYMENTS;
+INSERT INTO STAGED_PAYMENTS
 SELECT 
-    order_id,
-    payment_type,
-	payment_value,
-    MAX(payment_sequential) AS max_payment_sequential
-FROM payments
+    ORDER_ID,
+    PAYMENT_TYPE,
+	PAYMENT_VALUE,
+    MAX(PAYMENT_SEQUENTIAL) AS MAX_PAYMENT_SEQUENTIAL
+FROM PAYMENTS
 GROUP BY 
-    order_id,
-    payment_type,
-	payment_value;
+    ORDER_ID,
+    PAYMENT_TYPE,
+	PAYMENT_VALUE;
 
 
--- Create the staging table (if not already existing)
-CREATE TABLE staged_order_items (
-    order_id VARCHAR(150),
-    product_id VARCHAR(150),
-    total_price FLOAT,
-    product_count INT
+-- CREATE THE STAGING TABLE (IF NOT ALREADY EXISTING)
+CREATE TABLE STAGED_ORDER_ITEMS (
+    ORDER_ID VARCHAR(150),
+    PRODUCT_ID VARCHAR(150),
+    TOTAL_PRICE FLOAT,
+    PRODUCT_COUNT INT
 );
 
--- Ensure the table is empty before insertion
-TRUNCATE TABLE staged_order_items;
+-- ENSURE THE TABLE IS EMPTY BEFORE INSERTION
+TRUNCATE TABLE STAGED_ORDER_ITEMS;
 
--- Insert aggregated data
-INSERT INTO staged_order_items
+-- INSERT AGGREGATED DATA
+INSERT INTO STAGED_ORDER_ITEMS
 SELECT 
-    order_id,
-    product_id,
-    SUM(price) AS total_price,
-    COUNT(product_id) AS product_count
+    ORDER_ID,
+    PRODUCT_ID,
+    SUM(PRICE) AS TOTAL_PRICE,
+    COUNT(PRODUCT_ID) AS PRODUCT_COUNT
 FROM 
-    order_items
+    ORDER_ITEMS
 GROUP BY 
-    order_id, 
-    product_id;
+    ORDER_ID, 
+    PRODUCT_ID;
 
---Join customers and orders table, this is an expensive hash join so doing this separately
-DROP TABLE IF EXISTS customer_orders;
-CREATE TABLE customer_orders (
-    order_id VARCHAR(150),
-    order_status VARCHAR(100),
-    customer_city VARCHAR(100),
-    customer_zip_code_prefix VARCHAR(100),
-	order_purchase_timestamp DATETIME
+--JOIN CUSTOMERS AND ORDERS TABLE, THIS IS AN EXPENSIVE HASH JOIN SO DOING THIS SEPARATELY
+DROP TABLE IF EXISTS CUSTOMER_ORDERS;
+CREATE TABLE CUSTOMER_ORDERS (
+    ORDER_ID VARCHAR(150),
+    ORDER_STATUS VARCHAR(100),
+    CUSTOMER_CITY VARCHAR(100),
+    CUSTOMER_ZIP_CODE_PREFIX VARCHAR(100),
+	ORDER_PURCHASE_TIMESTAMP DATETIME
 );
 
-INSERT INTO customer_orders (order_id, order_status, customer_city, customer_zip_code_prefix,order_purchase_timestamp)
+INSERT INTO CUSTOMER_ORDERS (ORDER_ID, ORDER_STATUS, CUSTOMER_CITY, CUSTOMER_ZIP_CODE_PREFIX,ORDER_PURCHASE_TIMESTAMP)
 SELECT 
-    o.order_id,
-    o.order_status,
-    c.customer_city,
-    c.customer_zip_code_prefix,
-	o.order_purchase_timestamp
-FROM customers c
-INNER JOIN orders o ON c.customer_id = o.customer_id
+    O.ORDER_ID,
+    O.ORDER_STATUS,
+    C.CUSTOMER_CITY,
+    C.CUSTOMER_ZIP_CODE_PREFIX,
+	O.ORDER_PURCHASE_TIMESTAMP
+FROM CUSTOMERS C
+INNER JOIN ORDERS O ON C.CUSTOMER_ID = O.CUSTOMER_ID
 OPTION (HASH JOIN, MAXDOP 2);
 
---Create Final Table
-DROP TABLE IF EXISTS order_activity;
-CREATE TABLE order_activity (
-    order_id VARCHAR(150),
-    price FLOAT,
-    product_id VARCHAR(150),
-    product_category VARCHAR(100),
-    customer_city VARCHAR(100),
-    customer_zip_code_prefix VARCHAR(100),
-    max_payment_sequential INT,
-    payment_type VARCHAR(150),
-	payment_value FLOAT,
-	order_purchase_timestamp DATETIME,
-    order_status VARCHAR(100)
+--CREATE FINAL TABLE
+DROP TABLE IF EXISTS ORDER_ACTIVITY;
+CREATE TABLE ORDER_ACTIVITY (
+    ORDER_ID VARCHAR(150),
+    PRICE FLOAT,
+    PRODUCT_ID VARCHAR(150),
+    PRODUCT_CATEGORY VARCHAR(100),
+    CUSTOMER_CITY VARCHAR(100),
+    CUSTOMER_ZIP_CODE_PREFIX VARCHAR(100),
+    MAX_PAYMENT_SEQUENTIAL INT,
+    PAYMENT_TYPE VARCHAR(150),
+	PAYMENT_VALUE FLOAT,
+	ORDER_PURCHASE_TIMESTAMP DATETIME,
+    ORDER_STATUS VARCHAR(100)
 );
 
 
-INSERT INTO order_activity (
-    order_id,
-    price,
-    product_id,
-    product_category,
-    customer_city,
-    customer_zip_code_prefix,
-    max_payment_sequential,
-    payment_type,
-	payment_value,
-	order_purchase_timestamp,
-    order_status
+INSERT INTO ORDER_ACTIVITY (
+    ORDER_ID,
+    PRICE,
+    PRODUCT_ID,
+    PRODUCT_CATEGORY,
+    CUSTOMER_CITY,
+    CUSTOMER_ZIP_CODE_PREFIX,
+    MAX_PAYMENT_SEQUENTIAL,
+    PAYMENT_TYPE,
+	PAYMENT_VALUE,
+	ORDER_PURCHASE_TIMESTAMP,
+    ORDER_STATUS
 )
 SELECT
-    c.order_id,
-    i.total_price AS price,
-    prod.product_id,
-    prod.product_category,
-    c.customer_city,
-    c.customer_zip_code_prefix,
-    pay.max_payment_sequential,
-    pay.payment_type AS payment_type,
-	pay.payment_value,
-	c.order_purchase_timestamp,
-    c.order_status
-FROM customer_orders c
-LEFT JOIN staged_order_items i ON i.order_id = c.order_id
-LEFT JOIN products prod ON i.product_id = prod.product_id
-LEFT JOIN staged_payments pay ON c.order_id = pay.order_id
+    C.ORDER_ID,
+    I.TOTAL_PRICE AS PRICE,
+    PROD.PRODUCT_ID,
+    PROD.PRODUCT_CATEGORY,
+    C.CUSTOMER_CITY,
+    C.CUSTOMER_ZIP_CODE_PREFIX,
+    PAY.MAX_PAYMENT_SEQUENTIAL,
+    PAY.PAYMENT_TYPE AS PAYMENT_TYPE,
+	PAY.PAYMENT_VALUE,
+	C.ORDER_PURCHASE_TIMESTAMP,
+    C.ORDER_STATUS
+FROM CUSTOMER_ORDERS C
+LEFT JOIN STAGED_ORDER_ITEMS I ON I.ORDER_ID = C.ORDER_ID
+LEFT JOIN PRODUCTS PROD ON I.PRODUCT_ID = PROD.PRODUCT_ID
+LEFT JOIN STAGED_PAYMENTS PAY ON C.ORDER_ID = PAY.ORDER_ID
 OPTION (HASH JOIN, MAXDOP 2);
 
---SELECT distinct count(order_id) from order_activity;
+--SELECT DISTINCT COUNT(ORDER_ID) FROM ORDER_ACTIVITY;
