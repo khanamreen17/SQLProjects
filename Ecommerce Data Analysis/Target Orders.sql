@@ -17,6 +17,7 @@ DROP TABLE IF EXISTS staged_payments;
 CREATE TABLE staged_payments (
     order_id VARCHAR(150),
     payment_type VARCHAR(150),
+	payment_value FLOAT,
     max_payment_sequential INT
 );
 
@@ -26,11 +27,13 @@ INSERT INTO staged_payments
 SELECT 
     order_id,
     payment_type,
+	payment_value,
     MAX(payment_sequential) AS max_payment_sequential
 FROM payments
 GROUP BY 
     order_id,
-    payment_type;
+    payment_type,
+	payment_value;
 
 
 -- Create the staging table (if not already existing)
@@ -89,6 +92,7 @@ CREATE TABLE order_activity (
     customer_zip_code_prefix VARCHAR(100),
     max_payment_sequential INT,
     payment_type VARCHAR(150),
+	payment_value FLOAT,
 	order_purchase_timestamp DATETIME,
     order_status VARCHAR(100)
 );
@@ -103,6 +107,7 @@ INSERT INTO order_activity (
     customer_zip_code_prefix,
     max_payment_sequential,
     payment_type,
+	payment_value,
 	order_purchase_timestamp,
     order_status
 )
@@ -115,6 +120,7 @@ SELECT
     c.customer_zip_code_prefix,
     pay.max_payment_sequential,
     pay.payment_type AS payment_type,
+	pay.payment_value,
 	c.order_purchase_timestamp,
     c.order_status
 FROM customer_orders c
